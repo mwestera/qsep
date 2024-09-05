@@ -7,7 +7,7 @@ from transformers import pipeline
 
 # TODO: Operate on question sequences, not just single questions, given "zoja" etc.
 
-SYSTEM_PROMPT = "You are a system that can reformulate questions to isolate the subquestions they contain, particularly for the Dutch language."
+SYSTEM_PROMPT = "You are a system that can break down a potentially complex question into subquestions, particularly for the Dutch language."
 EXAMPLES = [
     {'prompt': 'Sinds wanneer geldt deze maatregel en wat was destijds de motivatie?',
      'response': ['Sinds wanneer geldt deze maatregel?', 'Wat was destijds de motivatie voor deze maatregel?']},
