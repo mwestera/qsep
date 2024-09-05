@@ -36,7 +36,8 @@ def main():
 
     chat_starts = iter_chat_starts(sys.stdin, SYSTEM_PROMPT, functools.partial(PROMPT.format, nudge=args.nudge))
     pipe = pipeline("text-generation", model=args.model)
-    for result in pipe(chat_starts):
+    logging.warning("Feeding transformers.pipeline a list because of transformers inconsistency.")
+    for result in pipe(list(chat_starts)):  # TODO Fix once fixed
         print(result['generated_text'][-1]['content'])
 
 
