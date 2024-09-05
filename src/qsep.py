@@ -31,6 +31,7 @@ def main():
     argparser.add_argument('--model', nargs='?', default="unsloth/llama-3-70b-Instruct-bnb-4bit", type=str)
     # argparser.add_argument('--nudge', nargs='*', type=str)
     argparser.add_argument('--json', action='store_true', help='Whether to give json output; otherwise each question on a new line, with empty line per input.')
+    argparser.add_argument('--temp', required=False, type=float, help='Temperature', default=.1)
     args = argparser.parse_args()
     # if args.nudge:
     #     args.nudge = ''.join(f'- {nudge}\n' for nudge in args.nudge)
@@ -38,7 +39,7 @@ def main():
     chat_starts = iter_chat_starts(sys.stdin, EXAMPLES, SYSTEM_PROMPT)
     pipe = pipeline("text-generation", model=args.model)
     logging.warning("Feeding transformers.pipeline a list because of transformers inconsistency.")
-    for responses in pipe(list(chat_starts), max_new_tokens=1000):  # TODO Fix once fixed
+    for responses in pipe(list(chat_starts), max_new_tokens=1000, temperature=args.temp):  # TODO remove list once transformers allows generator
         for response in responses:
             raw = response['generated_text'][-1]['content']
             try:
