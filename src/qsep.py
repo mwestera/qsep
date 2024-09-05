@@ -50,6 +50,8 @@ def iter_chat_starts(texts, examples, system_prompt):
 
     for text in texts:
         text = text.strip()
+        if not text:
+            continue
         chat_start = [
             {"role": "system", "content": system_prompt},
             *examples_chat,
