@@ -29,17 +29,43 @@ def main():
 
     argparser = argparse.ArgumentParser(description='Qsep')
     argparser.add_argument('--model', nargs='?', default="unsloth/llama-3-70b-Instruct-bnb-4bit", type=str)
-    argparser.add_argument('--nudge', nargs='*', type=str)
+    # argparser.add_argument('--nudge', nargs='*', type=str)
+    argparser.add_argument('--json', action='store_true', help='Whether to give json output; otherwise each question on a new line, with empty line per input.')
     args = argparser.parse_args()
-    if args.nudge:
-        args.nudge = ''.join(f'- {nudge}\n' for nudge in args.nudge)
+    # if args.nudge:
+    #     args.nudge = ''.join(f'- {nudge}\n' for nudge in args.nudge)
 
     chat_starts = iter_chat_starts(sys.stdin, EXAMPLES, SYSTEM_PROMPT)
     pipe = pipeline("text-generation", model=args.model)
     logging.warning("Feeding transformers.pipeline a list because of transformers inconsistency.")
     for responses in pipe(list(chat_starts), max_new_tokens=1000):  # TODO Fix once fixed
         for response in responses:
-            print(response['generated_text'][-1]['content'])
+            raw = response['generated_text'][-1]['content']
+            try:
+                result = parse_response(raw)
+            except ValueError:
+                logging.warning(f'Failed parsing: {raw}')
+                print()
+                continue
+
+            if args.json:
+                print(json.dumps(result))
+            else:
+                for res in result:
+                    print(res)
+        print()
+
+
+def parse_response(raw):
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        raise ValueError
+    if not isinstance(result, list):
+        raise ValueError
+    if any(not isinstance(x, str) for x in result):
+        raise ValueError
+    return result
 
 
 def iter_chat_starts(texts, examples, system_prompt):
@@ -50,8 +76,6 @@ def iter_chat_starts(texts, examples, system_prompt):
 
     for text in texts:
         text = text.strip()
-        if not text:
-            continue
         chat_start = [
             {"role": "system", "content": system_prompt},
             *examples_chat,
