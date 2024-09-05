@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qsep"
+version = "0.1"
+authors = [{name="Matthijs Westera", email="m.westera@hum.leidenuniv.nl"}]
+description = "Turning conjoined questions into independent questions."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["transformers", "torch"]
+
+
+[project.scripts]
+spanbed = "qsep:main"
+
+[project.urls]
+"Homepage" = "https://github.com/mwestera/qsep"
+"Bug Tracker" = "https://github.com/mwestera/qsep/issues"
