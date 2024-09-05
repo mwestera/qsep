@@ -1,29 +1,27 @@
 import argparse
 import sys
 import logging
-import functools
-
+import json
 from transformers import pipeline
 
 
 # TODO: Operate on question sequences, not just single questions, given "zoja" etc.
 
-SYSTEM_PROMPT = "Je bent een behulpzame assistent, en een taalkundig expert op het gebied van vragen."
-PROMPT = """Soms worden in 1 zin meerdere vragen gesteld. Voorbeelden: 
-
-Voorbeeld 1: Hoe heten Ben en Piet?
-Voorbeeld 2: Hoe laat is het en waar ga je naartoe?
-Voorbeeld 3: Heb je die brief gelezen en zoja, wat vond je ervan? 
-Voorbeeld 4: Waarom en sinds wanneer werkt dat zo?
-
-Kun je me helpen? Iemand stuurde me deze vraag:
-
-> {text}
-
-Worden hier meerdere vragen gesteld, of maar eentje?
-
-Schrijf alle afzonderlijke vragen in een lijst (met `-` als bullets). Bedankt!
-"""
+SYSTEM_PROMPT = "You are a system that can reformulate questions to isolate the subquestions they contain, particularly for the Dutch language."
+EXAMPLES = [
+    {'prompt': 'Sinds wanneer geldt deze maatregel en wat was destijds de motivatie?',
+     'response': ['Sinds wanneer geldt deze maatregel?', 'Wat was destijds de motivatie voor deze maatregel?']},
+    {'prompt': 'Heeft u de brief van de Indonesische overheid gelezen, en zoja, wat is uw reactie?',
+     'response': ["Heeft u de brief van de Indonesische overheid gelezen", "Wat is uw reactie op de brief van de Indonesische overheid?"]},
+    {'prompt': 'Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?',
+     'response': ['Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?']},
+    {'prompt': 'Wat is de grondwettelijke status van deze maatregel? Is dit onderzocht?',
+     'response': ["Wat is de staatrechtelijke grondslag van deze maatregel?", "Is de staatrechtelijke grondslag van deze maatregel onderzocht?"]},
+    {'prompt': 'Bent u bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen?',
+     'response': ['Bent u bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen?']},
+    {'prompt': 'Hoe vaak en wanneer nemen mensen in Nederland de fiets?',
+     'response': ["Hoe vaak nemen mensen in Nederland de fiets?", "Wanneer nemen mensen in Nederland de fiets?"]},
+]
 
 def main():
 
@@ -36,7 +34,7 @@ def main():
     if args.nudge:
         args.nudge = ''.join(f'- {nudge}\n' for nudge in args.nudge)
 
-    chat_starts = iter_chat_starts(sys.stdin, SYSTEM_PROMPT, functools.partial(PROMPT.format, nudge=args.nudge))
+    chat_starts = iter_chat_starts(sys.stdin, EXAMPLES, SYSTEM_PROMPT)
     pipe = pipeline("text-generation", model=args.model)
     logging.warning("Feeding transformers.pipeline a list because of transformers inconsistency.")
     for responses in pipe(list(chat_starts), max_new_tokens=1000):  # TODO Fix once fixed
@@ -44,15 +42,21 @@ def main():
             print(response['generated_text'][-1]['content'])
 
 
+def iter_chat_starts(texts, examples, system_prompt):
+    examples_chat = []
+    for example in examples:
+        examples_chat.append({"role": "user", "content": example['prompt']})
+        examples_chat.append({"role": "assistant", "content": json.dumps(example['response'])})
 
-def iter_chat_starts(texts, system_prompt, prompt_format):
     for text in texts:
         text = text.strip()
         chat_start = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt_format(text=text)},
+            *examples_chat,
+            {"role": "user", "content": text},
         ]
         yield chat_start
+
 
 
 if __name__ == '__main__':
