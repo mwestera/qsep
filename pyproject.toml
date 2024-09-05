@@ -9,7 +9,7 @@ authors = [{name="Matthijs Westera", email="m.westera@hum.leidenuniv.nl"}]
 description = "Turning conjoined questions into independent questions."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["transformers", "torch"]
+dependencies = ["transformers", "torch", "accelerate", "optimum", "auto_gptq", "bitsandbytes"]
 
 
 [project.scripts]
