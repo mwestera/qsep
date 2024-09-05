@@ -6,12 +6,14 @@ import functools
 from transformers import pipeline
 
 
+# TODO: Operate on question sequences, not just single questions, given "zoja" etc.
+
 SYSTEM_PROMPT = "Je bent een behulpzame assistent, en een taalkundig expert op het gebied van vragen."
 PROMPT = """Soms worden in 1 zin meerdere vragen gesteld. Voorbeelden: 
 
 Voorbeeld 1: Hoe heten Ben en Piet?
 Voorbeeld 2: Hoe laat is het en waar ga je naartoe?
-Voorbeeld 3: Heb je die breef gelezen en zoja, wat vond je ervan? 
+Voorbeeld 3: Heb je die brief gelezen en zoja, wat vond je ervan? 
 Voorbeeld 4: Waarom en sinds wanneer werkt dat zo?
 
 Kun je me helpen? Iemand stuurde me deze vraag:
@@ -37,8 +39,9 @@ def main():
     chat_starts = iter_chat_starts(sys.stdin, SYSTEM_PROMPT, functools.partial(PROMPT.format, nudge=args.nudge))
     pipe = pipeline("text-generation", model=args.model)
     logging.warning("Feeding transformers.pipeline a list because of transformers inconsistency.")
-    for result in pipe(list(chat_starts)):  # TODO Fix once fixed
-        print(result['generated_text'][-1]['content'])
+    for responses in pipe(list(chat_starts), max_new_tokens=1000):  # TODO Fix once fixed
+        for response in responses:
+            print(response['generated_text'][-1]['content'])
 
 
 
