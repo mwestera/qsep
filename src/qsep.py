@@ -5,6 +5,7 @@ import json
 from transformers import pipeline
 import functools
 
+from .llm_utils import *
 
 # TODO: Operate on question sequences, not just single questions, given "zoja" etc.
 
@@ -43,9 +44,11 @@ def main():
     chat_starts = iter_chat_starts(args.file, EXAMPLES, SYSTEM_PROMPT)
     pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp)
     logging.warning("Feeding transformers.pipeline a list because of transformers inconsistency.")
-    for chat_start in chat_starts:
-        result = retry_until_parse(pipe, chat_start, parse_json_list_of_strings, args.retry)
-        if result is None:
+    for n, chat_start in enumerate(chat_starts):
+        try:
+            result = retry_until_parse(pipe, chat_start, parse_json_list_of_strings, args.retry)
+        except ValueError as e:
+            logging.warning(f'Failed parsing response for input {n}; {e}')
             print()
         else:
             if args.json:
@@ -56,51 +59,6 @@ def main():
         print()
 
 
-def retry_until_parse(pipe, chat_start, parser, n_retries):
-    n_try = 0
-    raw_results = []
-    result = None
-    while result is None and n_try < n_retries:
-        n_try += 1
-        raw = pipe([chat_start])[0][0]['generated_text'][-1]['content']
-        raw_results.append(raw)
-        try:
-            result = parser(raw)
-        except ValueError:
-            continue
-        else:
-            return result
-    else:
-        logging.warning(f'Failed parsing: {" / ".join(raw_results)}')
-        return None
-
-
-def parse_json_list_of_strings(raw):
-    try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        raise ValueError
-    if not isinstance(result, list):
-        raise ValueError
-    if any(not isinstance(x, str) for x in result):
-        raise ValueError
-    return result
-
-
-def iter_chat_starts(texts, examples, system_prompt):
-    examples_chat = []
-    for example in examples:
-        examples_chat.append({"role": "user", "content": example['prompt']})
-        examples_chat.append({"role": "assistant", "content": json.dumps(example['response'])})
-
-    for text in texts:
-        text = text.strip()
-        chat_start = [
-            {"role": "system", "content": system_prompt},
-            *examples_chat,
-            {"role": "user", "content": text},
-        ]
-        yield chat_start
 
 
 
