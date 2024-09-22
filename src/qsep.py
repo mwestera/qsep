@@ -36,13 +36,14 @@ def main():
     # argparser.add_argument('--nudge', nargs='*', type=str)
     argparser.add_argument('--json', action='store_true', help='Whether to give json output; otherwise each question on a new line, with empty line per input.')
     argparser.add_argument('--temp', required=False, type=float, help='Temperature', default=.1)
+    argparser.add_argument('--topp', required=False, type=float, help='Sample only from top probability', default=None)
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
     args = argparser.parse_args()
     # if args.nudge:
     #     args.nudge = ''.join(f'- {nudge}\n' for nudge in args.nudge)
 
     chat_starts = iter_chat_starts(args.file, EXAMPLES, SYSTEM_PROMPT)
-    pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp)
+    pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp, top_p=args.topp)
     logging.warning("Feeding transformers.pipeline a list because of transformers inconsistency.")
     for n, chat_start in enumerate(chat_starts):
         try:
