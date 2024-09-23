@@ -57,6 +57,9 @@ def main():
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
     args = argparser.parse_args()
 
+    if args.model == 'test':
+        args.model = 'llamafactory/tiny-random-Llama-3'
+
     pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp, top_p=args.topp)
     for n, (original, rephrased) in enumerate(csv.reader(args.file)):
         try:

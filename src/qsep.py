@@ -43,6 +43,9 @@ def main():
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
     args = argparser.parse_args()
 
+    if args.model == 'test':
+        args.model = 'llamafactory/tiny-random-Llama-3'
+
     if args.validate and not args.json:
         logging.warning("Are you sure you don't want --json output?")
 
