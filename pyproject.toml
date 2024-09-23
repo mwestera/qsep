@@ -14,6 +14,7 @@ dependencies = ["transformers", "torch", "accelerate", "optimum", "auto_gptq", "
 
 [project.scripts]
 qsep = "qsep:main"
+qspan = "qspan:main"
 
 [project.urls]
 "Homepage" = "https://github.com/mwestera/qsep"

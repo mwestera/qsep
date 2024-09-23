@@ -6,8 +6,9 @@ from transformers import pipeline
 import functools
 
 from .llm_utils import *
+from .qspan import find_supporting_quote
 
-# TODO: Operate on question sequences, not just single questions, given "zoja" etc.
+# TODO: Plug in more representative examples.
 
 SYSTEM_PROMPT = "You are a system that can break down a potentially complex question and dependent questions into self-contained subquestions, particularly for the Dutch language."
 EXAMPLES = [
@@ -24,6 +25,8 @@ EXAMPLES = [
     {'prompt': 'Hoevaak en wanneer nemen mensen in Nederland de fiets? Wat is daarover uw mening?',
      'response': ["Hoevaak nemen mensen in Nederland de fiets?", "Wanneer nemen mensen in Nederland de fiets?", "Wat is uw mening over hoevaak en wanneer mensen in Nederland de fiets nemen?"]},
 ]
+for exe in EXAMPLES:
+    exe['response'] = json.dumps(exe['response'])
 
 
 def main():
@@ -33,34 +36,53 @@ def main():
     argparser = argparse.ArgumentParser(description='Qsep')
     argparser.add_argument('file', nargs='?', type=argparse.FileType('r'), default=sys.stdin, help='Input file, one (composite) question per line; when omitted stdin.')
     argparser.add_argument('--model', nargs='?', default="unsloth/llama-3-70b-Instruct-bnb-4bit", type=str)
-    # argparser.add_argument('--nudge', nargs='*', type=str)
     argparser.add_argument('--json', action='store_true', help='Whether to give json output; otherwise each question on a new line, with empty line per input.')
     argparser.add_argument('--temp', required=False, type=float, help='Temperature', default=.1)
     argparser.add_argument('--topp', required=False, type=float, help='Sample only from top probability', default=None)
+    argparser.add_argument('--validate', action='store_true', help='Use LLM to link replies back to original quotes')
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
     args = argparser.parse_args()
-    # if args.nudge:
-    #     args.nudge = ''.join(f'- {nudge}\n' for nudge in args.nudge)
 
-    chat_starts = iter_chat_starts(args.file, EXAMPLES, SYSTEM_PROMPT)
     pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp, top_p=args.topp)
-    logging.warning("Feeding transformers.pipeline a list because of transformers inconsistency.")
-    for n, chat_start in enumerate(chat_starts):
+    for n, line in enumerate(args.file):
+        line = line.strip()
+        if not line:
+            logging.warning(f'Empty line on input line {n}')
+            print()
+            print()
+            continue
+
+        chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
+        if not args.validate:
+            parser = parse_json_list_of_strings
+        else:
+            def parser(raw):
+                return [{'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.retry),
+                         'rephrased': rephrased} for rephrased in parse_json_list_of_strings(raw)]
         try:
-            result = retry_until_parse(pipe, chat_start, parse_json_list_of_strings, args.retry)
+            result = retry_until_parse(pipe, chat_start, parser, args.retry)
         except ValueError as e:
-            logging.warning(f'Failed parsing response for input {n}; {e}')
+            logging.warning(f'Failed parsing response for input line {n}; {e}')
             print()
         else:
             if args.json:
                 print(json.dumps(result))
             else:
                 for res in result:
-                    print(res)
+                    print(res['rephrased'])
         print()
 
 
-
+def parse_json_list_of_strings(raw):
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        raise ValueError
+    if not isinstance(result, list):
+        raise ValueError('Not a list')
+    if any(not isinstance(x, str) for x in result):
+        raise ValueError('List contains a non-string')
+    return result
 
 
 if __name__ == '__main__':

@@ -19,29 +19,15 @@ def retry_until_parse(pipe, chat_start, parser, n_retries):
         raise ValueError(' | '.join(errors))
 
 
-def parse_json_list_of_strings(raw):
-    try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        raise ValueError
-    if not isinstance(result, list):
-        raise ValueError
-    if any(not isinstance(x, str) for x in result):
-        raise ValueError
-    return result
-
-
-def iter_chat_starts(texts, examples, system_prompt):
+def make_chat_start(prompt, examples, system_prompt):
     examples_chat = []
-    for example in examples:
+    for example in examples:    # TODO This is executed anew for each prompt...
         examples_chat.append({"role": "user", "content": example['prompt']})
-        examples_chat.append({"role": "assistant", "content": json.dumps(example['response'])})
+        examples_chat.append({"role": "assistant", "content": example['response']})
 
-    for text in texts:
-        text = text.strip()
-        chat_start = [
-            {"role": "system", "content": system_prompt},
-            *examples_chat,
-            {"role": "user", "content": text},
-        ]
-        yield chat_start
+    chat_start = [
+        {"role": "system", "content": system_prompt},
+        *examples_chat,
+        {"role": "user", "content": prompt.strip()},
+    ]
+    return chat_start
