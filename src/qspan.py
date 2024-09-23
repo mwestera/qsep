@@ -8,7 +8,7 @@ import csv
 import re
 
 
-PROMPT_FORMAT = '> {original}\n\nQuote ONLY the exact words in this passage that convey the question "{rephrase}". Do NOT quote any extra words; only those that communicate the given meaning component.'
+PROMPT_FORMAT = '> {original}\n\nFrom this passage, quote only those constituent(s) that together convey exactly "{rephrase}", and no more.'
 
 SYSTEM_PROMPT = "You are a system that can match paraphrases to the original quotations in the source text, specialized in questions, in particular for the Dutch language. (Be especially mindful of conjunction 'en'.)"
 
@@ -33,6 +33,9 @@ EXAMPLES = [
     {'original': 'Hoevaak en wanneer nemen mensen in Nederland de fiets? Wat is daarover uw mening?',
      'rephrase': 'Wat is uw mening over hoevaak en wanneer mensen in Nederland de fiets nemen?',
      'response': "Wat is daarover uw mening?"},
+    {'original': "Wie doet dat en sinds wanneer",
+     'rephrase': "Sinds wanneer wordt dat gedaan?",
+     'response': "sinds wanneer?"},
 ]
 
 for exe in EXAMPLES:
