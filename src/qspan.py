@@ -3,7 +3,7 @@ import sys
 import logging
 from transformers import pipeline
 import functools
-from .llm_utils import *
+from llm_utils import *
 import csv
 import re
 

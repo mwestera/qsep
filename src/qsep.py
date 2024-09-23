@@ -5,8 +5,8 @@ import json
 from transformers import pipeline
 import functools
 
-from .llm_utils import *
-from .qspan import find_supporting_quote
+from llm_utils import *
+from qspan import find_supporting_quote
 
 # TODO: Plug in more representative examples.
 
@@ -42,6 +42,9 @@ def main():
     argparser.add_argument('--validate', action='store_true', help='Use LLM to link replies back to original quotes')
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
     args = argparser.parse_args()
+
+    if args.validate and not args.json:
+        logging.warning("Are you sure you don't want --json output?")
 
     pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp, top_p=args.topp)
     for n, line in enumerate(args.file):
