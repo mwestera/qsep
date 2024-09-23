@@ -72,7 +72,7 @@ def main():
                 print(json.dumps(result))
             else:
                 for res in result:
-                    print(res['rephrased'])
+                    print(res['rephrased'] if args.validate else res)
         print()
 
 

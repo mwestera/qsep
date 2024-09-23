@@ -8,9 +8,9 @@ import csv
 import re
 
 
-PROMPT_FORMAT = '> {original}\n\nQuote the _exact words_ in this passage, that convey the question "{rephrase}".'
+PROMPT_FORMAT = '> {original}\n\nQuote ONLY the exact words in this passage that convey the question "{rephrase}". Do NOT quote any extra words; only those that communicate the given meaning component.'
 
-SYSTEM_PROMPT = "You are a system that can match paraphrases to the original quotations in the source text, specialized in questions, in particular for the Dutch language."
+SYSTEM_PROMPT = "You are a system that can match paraphrases to the original quotations in the source text, specialized in questions, in particular for the Dutch language. (Be especially mindful of conjunction 'en'.)"
 
 # TODO: Plugin more representative examples.
 
@@ -75,7 +75,7 @@ def find_supporting_quote(original, rephrased, pipe, n_retries):
     chat_start = make_chat_start(prompt, EXAMPLES, SYSTEM_PROMPT)
     return retry_until_parse(pipe,
                              chat_start,
-                             parser=functools.partial(parse_string_quote_as_spans, orig=original),
+                             parser=functools.partial(parse_string_quote_as_spans, original=original),
                              n_retries=n_retries)
 
 
