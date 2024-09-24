@@ -8,7 +8,7 @@ import csv
 import re
 
 
-PROMPT_FORMAT = '> {original}\n\nGive an exact, literal quote (mind the punctuation!) from this passage that conveys exactly "{rephrase}", and no more.'
+PROMPT_FORMAT = '> {original}\n\nGive an exact, literal quote from this passage that conveys the same intent as "{rephrase}", and no more.'
 
 SYSTEM_PROMPT = "You are a system that can match paraphrases to the original quotations in the source text, specialized in questions, in particular for the Dutch language."
 
@@ -24,18 +24,18 @@ EXAMPLES = [
     {'original': 'Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?',
      'rephrase': 'Vindt u ook dat dierenrecht een prominentere plek in de samenleving moet innemen?',
      'response': 'Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?'},
-    {'original': 'Wat is de grondwettelijke status van deze maatregel? Is dit onderzocht?',
+    {'original': 'Wat is de grondwettelijke status van deze maatregel, is dit onderzocht, en door wie?',
      'rephrase': 'Is de staatrechtelijke grondslag van deze maatregel onderzocht?',
-     'response': "Is dit onderzocht?"},
+     'response': "is dit onderzocht"},
     {'original': 'Hoevaak en wanneer nemen mensen in Nederland de fiets? Wat is daarover uw mening?',
      'rephrase': 'Hoevaak nemen mensen in Nederland de fiets?',
      'response': "Hoevaak ... nemen mensen in Nederland de fiets?"},
     {'original': 'Hoevaak en wanneer nemen mensen in Nederland de fiets? Wat is daarover uw mening?',
      'rephrase': 'Wat is uw mening over hoevaak en wanneer mensen in Nederland de fiets nemen?',
      'response': "Wat is daarover uw mening?"},
-    {'original': "Wie doet dat en sinds wanneer",
+    {'original': "Sinds wanneer wordt dat gedaan en door wie?",
      'rephrase': "Sinds wanneer wordt dat gedaan?",
-     'response': "sinds wanneer?"},
+     'response': "Sinds wanneer wordt dat gedaan"},
 ]
 
 for exe in EXAMPLES:
