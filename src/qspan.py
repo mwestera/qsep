@@ -8,7 +8,7 @@ import csv
 import re
 
 
-PROMPT_FORMAT = '> {original}\n\nGive an exact, literal quote from this passage that conveys exactly "{rephrase}", and no more.'
+PROMPT_FORMAT = '> {original}\n\nGive an exact, literal quote (mind the punctuation!) from this passage that conveys exactly "{rephrase}", and no more.'
 
 SYSTEM_PROMPT = "You are a system that can match paraphrases to the original quotations in the source text, specialized in questions, in particular for the Dutch language."
 
@@ -86,22 +86,30 @@ def find_supporting_quote(original, rephrased, pipe, n_retries, fail_ok=False):
                              fail_ok=fail_ok)
 
 
-def parse_string_quote_as_spans(quote: str, original: str, fuzzy=False) -> list[dict]:
+def parse_string_quote_as_spans(quote: str, original: str, ignore_punct=True, fuzzy=False) -> list[dict]:
     """
     >>> parse_string_quote_as_spans('de grote ... was lui', 'de grote grijze vos was lui')
     [{'start': 0, 'end': 8, 'text': 'de grote'}, {'start': 20, 'end': 27, 'text': 'was lui'}]
     """
 
-    # TODO: Implment fuzzy=True
+    # TODO: Implement fuzzy=True
     if fuzzy:
         raise NotImplementedError
 
     quote_chunks = quote.split('...')
+
     clean_quote_chunks = [re.escape(chunk.strip()) for chunk in quote_chunks]
     regex_quote_chunks = [f'({chunk})' for chunk in clean_quote_chunks]
     regex = re.compile('.+'.join(regex_quote_chunks), flags=re.IGNORECASE)
+
     spans = []
     matches = list(regex.finditer(original))
+    if len(matches) != 1 and ignore_punct:
+        # TODO: refactor
+        clean_quote_chunks_nopunct = [re.escape(chunk.strip().strip('.?!"\')([]')) for chunk in quote_chunks]
+        regex_quote_chunks_nopunct = [f'({chunk})' for chunk in clean_quote_chunks_nopunct]
+        regex_nopunct = re.compile('.+'.join(regex_quote_chunks_nopunct), flags=re.IGNORECASE)
+        matches = list(regex_nopunct.finditer(original))
     if len(matches) != 1:
         raise ValueError(f'{quote=}')
 
