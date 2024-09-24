@@ -34,15 +34,21 @@ You can feed it into `qsep` like this (for example; default temperature is 0.1):
 cat questions.txt | qsep --temp .3
 ```
 
-This will output one subquestion per line, the outputs for different inputs separated by empty lines.
-Alternatively, add `--json` to get JSON lines as output, each output line containing a list of subquestions for the corresponding input.
+This will output one subquestion per line, the outputs for different inputs separated by empty lines. Alternatively, add `--list` to get a single-line JSON list per input, instead of potentially multiple lines.
 
 ```bash
-cat questions.txt | qsep --json
+$ cat questions.txt | qsep --list
 ```
 
 Include `--validate` to retrieve the spans from which each subquestion derives:
 
 ```bash
+cat questions.txt | qsep --validate
+```
+
+You can add `--json` to get JSON lines as output. Without `--validate` (or with `--list`), this does the same as `--list`. With `--validate`, it results in potentially multiple JSON lines per input:  
+
+```bash
 cat questions.txt | qsep --json --validate
 ```
+

@@ -36,7 +36,8 @@ def main():
     argparser = argparse.ArgumentParser(description='Qsep')
     argparser.add_argument('file', nargs='?', type=argparse.FileType('r'), default=sys.stdin, help='Input file, one (composite) question per line; when omitted stdin.')
     argparser.add_argument('--model', nargs='?', default="unsloth/llama-3-70b-Instruct-bnb-4bit", type=str)
-    argparser.add_argument('--json', action='store_true', help='Whether to give json output; otherwise each question on a new line, with empty line per input.')
+    argparser.add_argument('--list', action='store_true', help='Whether to give a json list with outputs per input, instead of potentially multiple lines per input.')
+    argparser.add_argument('--json', action='store_true', help='Whether to give json output instead of plain strings. NB. Interacts with --validate; see README.')
     argparser.add_argument('--temp', required=False, type=float, help='Temperature', default=.1)
     argparser.add_argument('--topp', required=False, type=float, help='Sample only from top probability', default=None)
     argparser.add_argument('--validate', action='store_true', help='Use LLM to link replies back to original quotes')
@@ -54,7 +55,10 @@ def main():
         line = line.strip()
         if not line:
             logging.warning(f'Empty line on input line {n}')
-            print()
+            if args.list:
+                print(json.dumps([]))
+            else:
+                print()
             print()
             continue
 
@@ -71,11 +75,17 @@ def main():
             logging.warning(f'Failed parsing response for input line {n}; {e}')
             print()
         else:
-            if args.json:
-                print(json.dumps(result))
+            if args.list:
+                if args.validate and not args.json:
+                    print(json.dumps([res['rephrased'] for res in result]))
+                else:
+                    print(json.dumps(result))
             else:
                 for res in result:
-                    print(res['rephrased'] if args.validate else res)
+                    if args.validate:
+                        print(json.dumps(res) if args.json else res['rephrased'])
+                    else:
+                        print(res)
         print()
 
 
