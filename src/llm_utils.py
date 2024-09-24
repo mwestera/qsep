@@ -6,11 +6,11 @@ def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False):
     n_try = 0
     result = None
     errors = []
-    logging.info(f'Prompt: {chat_start[-1]["content"]}')
+    logging.info(f'Prompt: {chat_start[-1]["content"]}'.replace('\n', '//'))
     while result is None and n_try < n_retries:
         n_try += 1
         raw = pipe([chat_start])[0][0]['generated_text'][-1]['content']
-        logging.info(f'(Attempt {n_try}): Model says: {raw}')
+        logging.info(f'(Attempt {n_try}): Model says: {raw}'.replace('\n', '//'))
         try:
             result = parser(raw)
         except ValueError as e:
