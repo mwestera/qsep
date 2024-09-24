@@ -8,9 +8,9 @@ import csv
 import re
 
 
-PROMPT_FORMAT = '> {original}\n\nFrom this passage, quote only those constituent(s) that together convey exactly "{rephrase}", and no more.'
+PROMPT_FORMAT = '> {original}\n\nGive an exact, literal quote from this passage that conveys exactly "{rephrase}", and no more.'
 
-SYSTEM_PROMPT = "You are a system that can match paraphrases to the original quotations in the source text, specialized in questions, in particular for the Dutch language. (Be especially mindful of conjunction 'en'.)"
+SYSTEM_PROMPT = "You are a system that can match paraphrases to the original quotations in the source text, specialized in questions, in particular for the Dutch language."
 
 # TODO: Plugin more representative examples.
 
@@ -86,11 +86,15 @@ def find_supporting_quote(original, rephrased, pipe, n_retries, fail_ok=False):
                              fail_ok=fail_ok)
 
 
-def parse_string_quote_as_spans(quote: str, original: str) -> list[dict]:
+def parse_string_quote_as_spans(quote: str, original: str, fuzzy=False) -> list[dict]:
     """
     >>> parse_string_quote_as_spans('de grote ... was lui', 'de grote grijze vos was lui')
     [{'start': 0, 'end': 8, 'text': 'de grote'}, {'start': 20, 'end': 27, 'text': 'was lui'}]
     """
+
+    # TODO: Implment fuzzy=True
+    if fuzzy:
+        raise NotImplementedError
 
     quote_chunks = quote.split('...')
     clean_quote_chunks = [re.escape(chunk.strip()) for chunk in quote_chunks]
