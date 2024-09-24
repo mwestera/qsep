@@ -67,7 +67,7 @@ def main():
             parser = parse_json_list_of_strings
         else:
             def parser(raw):
-                return [{'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.retry),
+                return [{'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.retry, fail_ok=True),
                          'rephrased': rephrased} for rephrased in parse_json_list_of_strings(raw)]
         try:
             result = retry_until_parse(pipe, chat_start, parser, args.retry)

@@ -2,7 +2,7 @@ import json
 import logging
 
 
-def retry_until_parse(pipe, chat_start, parser, n_retries):
+def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False):
     n_try = 0
     result = None
     errors = []
@@ -19,7 +19,11 @@ def retry_until_parse(pipe, chat_start, parser, n_retries):
         else:
             return result
     else:
-        raise ValueError('Max number of retries.')
+        if not fail_ok:
+            raise ValueError('Max number of retries.')
+        else:
+            logging.warning('Max number of retries.')
+            return None
 
 
 def make_chat_start(prompt, examples, system_prompt):
