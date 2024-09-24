@@ -98,7 +98,7 @@ def parse_string_quote_as_spans(quote: str, original: str) -> list[dict]:
     spans = []
     matches = list(regex.finditer(original))
     if len(matches) != 1:
-        raise ValueError('Response not a literal, unambiguous quote.')
+        raise ValueError(f'{quote=}')
 
     match = matches[0]
     for n in range(1, len(regex_quote_chunks)+1):
