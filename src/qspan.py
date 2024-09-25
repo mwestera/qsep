@@ -12,27 +12,27 @@ PROMPT_FORMAT = '> {original}\n\nGive an exact, literal quote from this passage 
 
 SYSTEM_PROMPT = "You are a system that can match paraphrases to the original quotations in the source text, specialized in questions, in particular for the Dutch language."
 
-# TODO: Plugin more representative examples.
+# TODO: Plugin more representative examples; more examples with ...
 
 EXAMPLES = [
-    {'original': 'Sinds wanneer geldt deze maatregel en wat was destijds de motivatie?',
+    {'original': 'Sinds wanneer geldt deze maatregel en wat was destijds de motivatie (is deze openbaar)?',
      'rephrase': 'Wat was destijds de motivatie voor deze maatregel?',
-     'response': 'wat was destijds de motivatie?'},
+     'response': 'wat was destijds de motivatie'},
     {'original': 'Heeft u de brief van de Indonesische overheid gelezen, en zoja, wat is uw reactie?',
      'rephrase': 'Als u de brief van de Indonesische overheid gelezen heeft, wat is dan uw reactie?',
      'response': "zoja, wat is dan uw reactie?"},
-    {'original': 'Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?',
-     'rephrase': 'Vindt u ook dat dierenrecht een prominentere plek in de samenleving moet innemen?',
-     'response': 'Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?'},
+    {'original': 'Bent u het met mij eens dat dierenrecht en milieubescherming een prominentere plek moeten innemen in de samenleving?',
+     'rephrase': 'Vindt u ook dat milieubescherming een prominentere plek in de samenleving moet innemen?',
+     'response': 'Bent u het met mij eens dat ... milieubescherming een prominentere plek moeten innemen in de samenleving?'},
     {'original': 'Wat is de grondwettelijke status van deze maatregel, is dit onderzocht, en door wie?',
      'rephrase': 'Is de staatrechtelijke grondslag van deze maatregel onderzocht?',
      'response': "is dit onderzocht"},
     {'original': 'Hoevaak en wanneer nemen mensen in Nederland de fiets? Wat is daarover uw mening?',
      'rephrase': 'Hoevaak nemen mensen in Nederland de fiets?',
      'response': "Hoevaak ... nemen mensen in Nederland de fiets?"},
-    {'original': 'Hoevaak en wanneer nemen mensen in Nederland de fiets? Wat is daarover uw mening?',
+    {'original': 'Hoevaak en wanneer nemen mensen in Nederland de fiets, wat is daarover uw mening en is die openbaar?',
      'rephrase': 'Wat is uw mening over hoevaak en wanneer mensen in Nederland de fiets nemen?',
-     'response': "Wat is daarover uw mening?"},
+     'response': "wat is daarover uw mening"},
     {'original': "Sinds wanneer wordt dat gedaan en door wie?",
      'rephrase': "Sinds wanneer wordt dat gedaan?",
      'response': "Sinds wanneer wordt dat gedaan"},
@@ -85,6 +85,8 @@ def find_supporting_quote(original, rephrased, pipe, n_retries, fail_ok=False):
                              n_retries=n_retries,
                              fail_ok=fail_ok)
 
+
+# TODO: Implement retrying WITH CORRECTIVE MESSAGE
 
 def parse_string_quote_as_spans(quote: str, original: str, ignore_punct=True, fuzzy=False) -> list[dict]:
     """
