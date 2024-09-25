@@ -2,7 +2,10 @@ import json
 import logging
 
 
-def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False):
+def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False, try_skip_first_line=True):
+    """
+    :param try_skip_first_line: Sometimes LLMs preface their (otherwise fine) answer by "Here is the answer:" etc.
+    """
     n_try = 0
     result = None
     errors = []
@@ -13,11 +16,19 @@ def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False):
         logging.info(f'(Attempt {n_try}): Model says: {raw}'.replace('\n', '//'))
         try:
             result = parser(raw)
-        except ValueError as e:
-            errors.append(str(e))
-            continue
-        else:
-            return result
+        except ValueError as e1:    # TODO: refactor
+            if try_skip_first_line:
+                try:
+                    raw_lines = raw.splitlines()
+                    if len(raw_lines) > 1:
+                        result = parser('\n'.join(raw_lines[1:]))
+                except ValueError as e2:
+                    errors.append(str(e1) + '; ' + str(e2))
+                    continue
+            else:
+                errors.append(str(e1))
+                continue
+        return result
     else:
         if not fail_ok:
             raise ValueError('Max number of retries.')
