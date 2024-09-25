@@ -17,14 +17,14 @@ EXAMPLES = [
      'response': ['Sinds wanneer geldt deze maatregel?', 'Wat was destijds de motivatie voor deze maatregel?']},
     {'prompt': 'Heeft u de brief van de Indonesische overheid gelezen, en zoja, wat is uw reactie?',
      'response': ["Heeft u de brief van de Indonesische overheid gelezen", "Wat is uw reactie op de brief van de Indonesische overheid?"]},
-    {'prompt': 'Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?',
-     'response': ['Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?']},
     {'prompt': 'Wat is de grondwettelijke status van deze maatregel? Is dit onderzocht (en door wie)?',
      'response': ["Wat is de staatrechtelijke grondslag van deze maatregel?", "Is de staatrechtelijke grondslag van deze maatregel onderzocht?", "Door wie is de staatsrechtelijke grondslag van deze maatregel onderzocht?"]},
-    {'prompt': 'Bent u bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen?',
-     'response': ['Bent u bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen?']},
+    {'prompt': 'Bent u bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen? Zonee, waarom niet?',
+     'response': ['Bent u bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen?', 'Waarom bent u niet bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen?']},
     {'prompt': 'Hoevaak en wanneer nemen mensen in Nederland de fiets? Wat is daarover uw mening?',
      'response': ["Hoevaak nemen mensen in Nederland de fiets?", "Wanneer nemen mensen in Nederland de fiets?", "Wat is uw mening over hoevaak en wanneer mensen in Nederland de fiets nemen?"]},
+    {'prompt': 'Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving? Zonee, waarom niet?',
+     'response': ['Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?', 'Waarom vindt u niet dat dierenrecht een prominentere plek moet innemen in de samenleving?']},
 ]
 for exe in EXAMPLES:
     exe['response'] = json.dumps(exe['response'])
@@ -70,8 +70,9 @@ def main():
         if not args.validate:
             parser = parse_json_or_itemized_list_of_strings
         else:
+            already_used = []
             def parser(raw):
-                return [{'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.retry, fail_ok=True),
+                return [{'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.retry, fail_ok=True, already_used=already_used),
                          'rephrased': rephrased} for rephrased in parse_json_list_of_strings(raw)]
 
         # TODO: Refactor the various output formats

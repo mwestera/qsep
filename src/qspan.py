@@ -76,12 +76,12 @@ def main():
         print()
 
 
-def find_supporting_quote(original, rephrased, pipe, n_retries, fail_ok=False):
+def find_supporting_quote(original, rephrased, pipe, n_retries, fail_ok=False, already_used=None):
     prompt = PROMPT_FORMAT.format(original=original, rephrase=rephrased)
     chat_start = make_chat_start(prompt, EXAMPLES, SYSTEM_PROMPT)
     return retry_until_parse(pipe,
                              chat_start,
-                             parser=functools.partial(parse_string_quote_as_spans, original=original),
+                             parser=functools.partial(parse_string_quote_as_spans, original=original, already_used=already_used),
                              n_retries=n_retries,
                              fail_ok=fail_ok)
 
