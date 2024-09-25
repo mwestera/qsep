@@ -7,6 +7,7 @@ import functools
 
 from llm_utils import *
 from qspan import find_supporting_quote
+import re
 
 # TODO: Plug in more representative examples.
 
@@ -15,11 +16,11 @@ EXAMPLES = [
     {'prompt': 'Sinds wanneer geldt deze maatregel en wat was destijds de motivatie?',
      'response': ['Sinds wanneer geldt deze maatregel?', 'Wat was destijds de motivatie voor deze maatregel?']},
     {'prompt': 'Heeft u de brief van de Indonesische overheid gelezen, en zoja, wat is uw reactie?',
-     'response': ["Heeft u de brief van de Indonesische overheid gelezen", "Als u de brief van de Indonesische overheid gelezen heeft, wat is dan uw reactie?"]},
+     'response': ["Heeft u de brief van de Indonesische overheid gelezen", "Wat is uw reactie op de brief van de Indonesische overheid?"]},
     {'prompt': 'Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?',
      'response': ['Bent u het met mij eens dat dierenrecht een prominentere plek moet innemen in de samenleving?']},
-    {'prompt': 'Wat is de grondwettelijke status van deze maatregel? Is dit onderzocht?',
-     'response': ["Wat is de staatrechtelijke grondslag van deze maatregel?", "Is de staatrechtelijke grondslag van deze maatregel onderzocht?"]},
+    {'prompt': 'Wat is de grondwettelijke status van deze maatregel? Is dit onderzocht (en door wie)?',
+     'response': ["Wat is de staatrechtelijke grondslag van deze maatregel?", "Is de staatrechtelijke grondslag van deze maatregel onderzocht?", "Door wie is de staatsrechtelijke grondslag van deze maatregel onderzocht?"]},
     {'prompt': 'Bent u bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen?',
      'response': ['Bent u bekend met het nieuwsbericht dat steeds meer asielzoekers via Luxemburg reizen?']},
     {'prompt': 'Hoevaak en wanneer nemen mensen in Nederland de fiets? Wat is daarover uw mening?',
@@ -64,41 +65,63 @@ def main():
 
         chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
         if not args.validate:
-            parser = parse_json_list_of_strings
+            parser = parse_json_or_itemized_list_of_strings
         else:
             def parser(raw):
                 return [{'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.retry, fail_ok=True),
                          'rephrased': rephrased} for rephrased in parse_json_list_of_strings(raw)]
+
+        # TODO: Refactor the various output formats
         try:
             result = retry_until_parse(pipe, chat_start, parser, args.retry)
         except ValueError as e:
             logging.warning(f'Failed parsing response for input line {n}; {e}')
-            print()
         else:
+            if args.validate and not args.json:
+                result = [res['rephrased'] for res in result]
             if args.list:
-                if args.validate and not args.json:
-                    print(json.dumps([res['rephrased'] for res in result]))
-                else:
+                if args.json:
                     print(json.dumps(result))
+                else:
+                    print(result) # TODO: Should be csv.
             else:
                 for res in result:
-                    if args.validate:
-                        print(json.dumps(res) if args.json else res['rephrased'])
+                    if args.json:
+                        print(json.dumps(res))
                     else:
                         print(res)
         print()
+
+
+def parse_json_or_itemized_list_of_strings(raw):
+    try:
+        return parse_json_list_of_strings(raw)
+    except ValueError as e1:
+        try:
+            return parse_itemized_list_of_strings(raw)
+        except ValueError as e2:
+            raise ValueError(f'{e1}; {e2}')
 
 
 def parse_json_list_of_strings(raw):
     try:
         result = json.loads(raw)
     except json.JSONDecodeError:
-        raise ValueError
+        raise ValueError('Not a json string')
     if not isinstance(result, list):
         raise ValueError('Not a list')
     if any(not isinstance(x, str) for x in result):
         raise ValueError('List contains a non-string')
     return result
+
+
+enum_regex = re.compile(r'[ \t]*\d+. +([^\n]+)')
+item_regex = re.compile(r'[ \t]*- +([^\n]+)')
+
+def parse_itemized_list_of_strings(raw):
+    if len(result := enum_regex.findall(raw)) <= 1 and len(result := item_regex.findall(raw)) <= 1:
+        raise ValueError('Not an itemized/enumerated list of strings')
+    return [s.strip('"\'') for s in result]
 
 
 if __name__ == '__main__':
