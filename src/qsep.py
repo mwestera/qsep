@@ -53,6 +53,10 @@ def main():
 
     pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp, top_p=args.topp)
     for n, line in enumerate(args.file):
+
+        if n > 0:
+            print()
+
         line = line.strip()
         if not line:
             logging.warning(f'Empty line on input line {n}')
@@ -60,7 +64,6 @@ def main():
                 print(json.dumps([]))
             else:
                 print()
-            print()
             continue
 
         chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
@@ -90,7 +93,6 @@ def main():
                         print(json.dumps(res))
                     else:
                         print(res)
-        print()
 
 
 def parse_json_or_itemized_list_of_strings(raw):
