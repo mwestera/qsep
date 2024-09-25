@@ -88,10 +88,12 @@ def find_supporting_quote(original, rephrased, pipe, n_retries, fail_ok=False):
 
 # TODO: Implement retrying WITH CORRECTIVE MESSAGE
 
-def parse_string_quote_as_spans(quote: str, original: str, ignore_punct=True, fuzzy=False) -> list[dict]:
+def parse_string_quote_as_spans(quote: str, original: str, fuzzy=False, already_used=None) -> list[dict]:
     """
     >>> parse_string_quote_as_spans('de grote ... was lui', 'de grote grijze vos was lui')
     [{'start': 0, 'end': 8, 'text': 'de grote'}, {'start': 20, 'end': 27, 'text': 'was lui'}]
+    >>> parse_string_quote_as_spans('Zo nee, waarom niet?', 'Deelt u de mening dat bij de toepassing van IVF (en ook andere kunstmatige fertiliteitstechnieken) alleenstaande vrouwen niet mogen worden achtergesteld? Zo nee, waarom niet? Bent u voornemens maatregelen te nemen tegen de IVF-klinieken die alleenstaanden bij voorbaat van een behandeling uitsluiten? Zo nee, waarom niet? Zo ja, kunt u uiteenzetten welke maatregelen dat zijn (incl. tijdpad)?', already_used=[])
+    [{'start': 154, 'end': 174, 'text': 'Zo nee, waarom niet?'}]
     """
 
     # TODO: Implement fuzzy=True
@@ -101,19 +103,25 @@ def parse_string_quote_as_spans(quote: str, original: str, ignore_punct=True, fu
     quote_chunks = quote.split('...')
 
     clean_quote_chunks = [re.escape(chunk.strip()) for chunk in quote_chunks]
-    regex_quote_chunks = [f'({chunk})' for chunk in clean_quote_chunks]
+    regex_quote_chunks = [f'({chunk+("?" if chunk.endswith("?") else "")})' for chunk in clean_quote_chunks]
     regex = re.compile('.+'.join(regex_quote_chunks), flags=re.IGNORECASE)
 
     spans = []
     matches = list(regex.finditer(original))
-    if len(matches) != 1 and ignore_punct:
-        # TODO: refactor
-        clean_quote_chunks_nopunct = [re.escape(chunk.strip().strip('.?!"\')([]')) for chunk in quote_chunks]
-        regex_quote_chunks_nopunct = [f'({chunk})' for chunk in clean_quote_chunks_nopunct]
-        regex_nopunct = re.compile('.+'.join(regex_quote_chunks_nopunct), flags=re.IGNORECASE)
-        matches = list(regex_nopunct.finditer(original))
-    if len(matches) != 1:
-        raise ValueError(f'{quote=}')
+
+    if not matches:
+        raise ValueError(f'No match for {quote}')
+
+    if len(matches) > 1:
+        if already_used is None:
+            raise ValueError(f'Multiple matches for {quote}')
+        else:
+            for match in matches:
+                if match.span(0) not in already_used:
+                    already_used.append(match.span(0))
+                    break
+            else:
+                raise ValueError(f'Multiple matches for {quote}')
 
     match = matches[0]
     for n in range(1, len(regex_quote_chunks)+1):
