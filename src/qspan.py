@@ -36,6 +36,9 @@ EXAMPLES = [
     {'original': "Sinds wanneer wordt dat gedaan en door wie?",
      'rephrase': "Sinds wanneer wordt dat gedaan?",
      'response': "Sinds wanneer wordt dat gedaan"},
+    {'original': "Aan de hand van welke regelgeving en door welke commissie is het besluit omtrent artikel 27 genomen, en is daar voldoende inspraak bij geweest?",
+     'rephrase': "Aan de hand van welke regelgeving is het besluit omtrent artikel 27 genomen?",
+     'response': "Aan de hand van welke regelgeving ... is het besluit omtrent artikel 27 genomen"},
 ]
 
 for exe in EXAMPLES:
@@ -123,6 +126,12 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_us
     [{'start': 4, 'end': 7, 'text': 'def'}]
     >>> parse_string_quote_as_spans('def', 'abc def ghij abc def ghij', already_used=[(4, 7)])
     [{'start': 17, 'end': 20, 'text': 'def'}]
+    >>> parse_string_quote_as_spans('And when?', 'What for? And why? And if so, when? And for whom will this be done?')
+    Traceback (most recent call last):
+    ValueError: No match for And when?
+    >>> parse_string_quote_as_spans('And ... when?', 'What for? And why? And if so, when? And for whom will this be done?', fuzzy=0.2)
+    Traceback (most recent call last):
+    ValueError: Multiple matches for And ... when?
     """
 
     quote_regex = dotted_quote_to_regex(quote, fuzzy)
@@ -144,7 +153,7 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_us
                 raise ValueError(f'Multiple matches for {quote}')
 
     spans = []
-    for n in range(1, len(match.groups()) +1):
+    for n in range(1, len(match.groups()) + 1):
         start, end = match.span(n)
         spans.append({'start': start, 'end': end, 'text': match.group(n)})
 
