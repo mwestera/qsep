@@ -32,6 +32,7 @@ for exe in EXAMPLES:
 
 # TODO: Include a 'raw' key in the output json? Pass along with the exception?!
 # TODO: Add gradual temperature increase for retrying?!
+# TODO: In case of splitandmerge, adapt the prompt so the model focuses on the last sentence? Will make it far more efficient, too.
 
 def main():
 
@@ -42,10 +43,12 @@ def main():
     argparser.add_argument('--model', nargs='?', default="unsloth/llama-3-70b-Instruct-bnb-4bit", type=str)
     argparser.add_argument('--list', action='store_true', help='Whether to give a json list with outputs per input, instead of potentially multiple lines per input.')
     argparser.add_argument('--json', action='store_true', help='Whether to give json output instead of plain strings. NB. Interacts with --validate; see README.')
+    argparser.add_argument('--validate', action='store_true', help='Use LLM to link replies back to original quotes')
+
     argparser.add_argument('--temp', required=False, type=float, help='Temperature', default=.1)
     argparser.add_argument('--topp', required=False, type=float, help='Sample only from top probability', default=None)
-    argparser.add_argument('--validate', action='store_true', help='Use LLM to link replies back to original quotes')
-    argparser.add_argument('--splitandmerge', required=False, type=int, default=None, help='Cuts question sequences into smaller chunks of n questions; recommended for longer sequences of questions, though really only with --validate.')
+
+    argparser.add_argument('--splitandmerge', required=False, type=int, default=None, help='Cuts question sequences into smaller chunks of n questions; recommended for longer sequences of questions, though really only with --validate enabled.')
     argparser.add_argument('--fuzzy', required=False, type=float, help='For retrieving quotations (if --validate), allow fuzzy matching, as a proportion of total characters.', default=0)
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
     argparser.add_argument('--validate_retry', required=False, type=int, help='Max number of retries if validation response failed to parse.', default=2)
@@ -101,7 +104,7 @@ def main():
 
 
                 if args.validate:
-                    for res in result:
+                    for res in subresult:
                         if any(span['start'] < target_start for span in res['spans']):
                             continue
                         for span in res['spans']:
