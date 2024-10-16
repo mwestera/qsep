@@ -31,8 +31,7 @@ for exe in EXAMPLES:
 
 
 # TODO: Include a 'raw' key in the output json? Pass along with the exception?!
-# TODO Try sentencizing + contextualizing + sentence-wise qsep, instead of global qsepping?
-
+# TODO: Add gradual temperature increase for retrying?!
 
 def main():
 
@@ -46,6 +45,7 @@ def main():
     argparser.add_argument('--temp', required=False, type=float, help='Temperature', default=.1)
     argparser.add_argument('--topp', required=False, type=float, help='Sample only from top probability', default=None)
     argparser.add_argument('--validate', action='store_true', help='Use LLM to link replies back to original quotes')
+    argparser.add_argument('--splitandmerge', required=False, type=int, default=None, help='Cuts question sequences into smaller chunks of n questions; recommended for longer sequences of questions, though really only with --validate.')
     argparser.add_argument('--fuzzy', required=False, type=float, help='For retrieving quotations (if --validate), allow fuzzy matching, as a proportion of total characters.', default=0)
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
     argparser.add_argument('--validate_retry', required=False, type=int, help='Max number of retries if validation response failed to parse.', default=2)
@@ -57,7 +57,13 @@ def main():
     if args.validate and not args.json:
         logging.warning("Are you sure you don't want --json output?")
 
+    if args.splitandmerge and not args.validate:
+        logging.warning("Are you sure you don't want --validate? Split and merge may result in a lot of duplicates otherwise!")
+
     pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp, top_p=args.topp)
+    if not args.validate:
+        parser = parse_json_or_itemized_list_of_strings
+
     for n, line in enumerate(args.file):
 
         if n > 0:
@@ -72,24 +78,47 @@ def main():
                 print()
             continue
 
-        chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
+        if args.validate:
+            parser = get_validated_parser(pipe, line, args.validate_retry, args.fuzzy)
 
-        if not args.validate:
-            parser = parse_json_or_itemized_list_of_strings
+        if args.split_and_merge is not None:
+            # TODO: Refactor
+            result = []
+            questions = [None, None] + list(re.finditer(r'\b[^?]+\?\b', line))
+            tuples = zip(questions[0:], questions[1:], questions[2:])
+            for triple in tuples:
+                triple = tuple(filter(None, triple))
+                triple_start = triple[0].span()[0]
+                target_start = triple[-1].span()[0]
+                triple_text = ''.join(match.group() for match in triple)
+
+
+                chat_start = make_chat_start(triple_text, EXAMPLES, SYSTEM_PROMPT)
+                try:
+                    subresult = retry_until_parse(pipe, chat_start, parser, args.retry)
+                except ValueError as e:
+                    logging.warning(f'Failed parsing triple response for input line {n}; {e}')
+                    continue
+
+
+                if args.validate:
+                    for res in result:
+                        if any(span['start'] < target_start for span in res['spans']):
+                            continue
+                        for span in res['spans']:
+                            span['start'] -= triple_start
+                            span['end'] -= triple_start
+                        result.append(res)
+                else:
+                    result.extend(subresult)
+
         else:
-            already_used = []
-            def parser(raw):
-                return [{
-                    'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.validate_retry, fail_ok=True, already_used=already_used, fuzzy=args.fuzzy),
-                    'rephrased': rephrased,
-                } for rephrased in parse_json_or_itemized_list_of_strings(raw)]
-
-        try:
-            result = retry_until_parse(pipe, chat_start, parser, args.retry)
-        except ValueError as e:
-            logging.warning(f'Failed parsing response for input line {n}; {e}')
-            continue
-
+            chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
+            try:
+                result = retry_until_parse(pipe, chat_start, parser, args.retry)
+            except ValueError as e:
+                logging.warning(f'Failed parsing response for input line {n}; {e}')
+                continue
 
         # TODO: Refactor the various output formats
         if args.validate and not args.json:
@@ -105,6 +134,20 @@ def main():
                     print(json.dumps(res))
                 else:
                     print(res)
+
+
+def get_validated_parser(pipe, line, validate_n_retries, fuzzy):
+    already_used = []
+
+    def parser(raw):
+        return [{
+            'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe,
+                                           n_retries=validate_n_retries, fail_ok=True, already_used=already_used,
+                                           fuzzy=fuzzy),
+            'rephrased': rephrased,
+        } for rephrased in parse_json_or_itemized_list_of_strings(raw)]
+
+    return parser
 
 
 def parse_json_or_itemized_list_of_strings(raw):
