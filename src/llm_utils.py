@@ -31,9 +31,9 @@ def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False, try_sk
         return result
     else:
         if not fail_ok:
-            raise ValueError('Max number of retries.')
+            raise ValueError(f'Max number of retries ({"; ".join(errors)})')
         else:
-            logging.warning('Max number of retries.')
+            logging.warning(f'Max number of retries ({"; ".join(errors)})')
             return None
 
 
