@@ -31,6 +31,8 @@ for exe in EXAMPLES:
 
 
 # TODO: Include a 'raw' key in the output json? Pass along with the exception?!
+# TODO Try sentencizing + contextualizing + sentence-wise qsep, instead of global qsepping?
+
 
 def main():
 
@@ -82,25 +84,27 @@ def main():
                     'rephrased': rephrased,
                 } for rephrased in parse_json_list_of_strings(raw)]
 
-        # TODO: Refactor the various output formats
         try:
             result = retry_until_parse(pipe, chat_start, parser, args.retry)
         except ValueError as e:
             logging.warning(f'Failed parsing response for input line {n}; {e}')
-        else:
-            if args.validate and not args.json:
-                result = [res['rephrased'] for res in result]
-            if args.list:
-                if args.json:
-                    print(json.dumps(result))
-                else:
-                    print(result) # TODO: Should be csv.
+            continue
+
+
+        # TODO: Refactor the various output formats
+        if args.validate and not args.json:
+            result = [res['rephrased'] for res in result]
+        if args.list:
+            if args.json:
+                print(json.dumps(result))
             else:
-                for res in result:
-                    if args.json:
-                        print(json.dumps(res))
-                    else:
-                        print(res)
+                print(result) # TODO: Should be csv.
+        else:
+            for res in result:
+                if args.json:
+                    print(json.dumps(res))
+                else:
+                    print(res)
 
 
 def parse_json_or_itemized_list_of_strings(raw):
