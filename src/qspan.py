@@ -54,6 +54,7 @@ def main():
     argparser.add_argument('--json', action='store_true', help='Whether to give json output; otherwise each question on a new line, with empty line per input.')
     argparser.add_argument('--temp', required=False, type=float, help='Temperature', default=.1)
     argparser.add_argument('--topp', required=False, type=float, help='Sample only from top probability', default=None)
+    argparser.add_argument('--fuzzy', required=False, type=float, help='For retrieving quotations, allow fuzzy matching, as a proportion of total characters.', default=0.0)
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
     args = argparser.parse_args()
 
@@ -63,7 +64,7 @@ def main():
     pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp, top_p=args.topp)
     for n, (original, rephrased) in enumerate(csv.reader(args.file)):
         try:
-            result = find_supporting_quote(original, rephrased, pipe, args.retry)
+            result = find_supporting_quote(original, rephrased, pipe, n_retries=args.retry, fuzzy=args.fuzzy)
         except ValueError as e:
             logging.warning(f'Failed parsing response for input {n}; {e}')
             print()
@@ -76,17 +77,41 @@ def main():
         print()
 
 
-def find_supporting_quote(original, rephrased, pipe, n_retries, fail_ok=False, already_used=None):
+def find_supporting_quote(original: str, rephrased: str, pipe, n_retries: int, fail_ok=False, already_used=None, fuzzy=0.0):
     prompt = PROMPT_FORMAT.format(original=original, rephrase=rephrased)
     chat_start = make_chat_start(prompt, EXAMPLES, SYSTEM_PROMPT)
     return retry_until_parse(pipe,
                              chat_start,
-                             parser=functools.partial(parse_string_quote_as_spans, original=original, already_used=already_used),
+                             parser=functools.partial(parse_string_quote_as_spans, original=original, already_used=already_used, fuzzy=fuzzy),
                              n_retries=n_retries,
                              fail_ok=fail_ok)
 
 
-# TODO: Implement retrying WITH CORRECTIVE MESSAGE
+# # Currently disabled because I don't think LLMs can count characters, and handling discontinuous spans not yet attempted.
+#
+# def parse_json_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_used=None) -> list[dict]:
+#     try:
+#         d = json.loads(quote)
+#     except json.JSONDecodeError as e:
+#         raise ValueError(f"No valid JSON in {quote}")
+#
+#     if 'start' not in d or 'end' not in d or 'text' not in d:
+#         raise ValueError(f"Key missing in {quote}")
+#
+#     start, end, text = d['start'], d['end'], d['text']
+#     if not (0 <= start <= end <= len(original)):
+#         raise ValueError(f"No proper start/end indices in {quote}")
+#
+#     target = original[start:end]
+#     if target != text:
+#         raise ValueError(f"Start:end results in different string ({text} != {target}) for {quote}")
+#
+#     parse_string_quote_as_spans(text, original, fuzzy, already_used)
+#
+
+
+# TODO: Implement in-dialogue-retrying with feedback
+
 
 def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_used=None) -> list[dict]:
     """
@@ -100,22 +125,8 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_us
     [{'start': 17, 'end': 20, 'text': 'def'}]
     """
 
-    quote_chunks = quote.split('...')
-
-    fuzzy_nchars = int(fuzzy * len(quote))
-
-    clean_quote_chunks = [regex.escape(chunk.strip()) for chunk in quote_chunks]
-    # make final question marks optional (because LLM often adds them):
-    regex_quote_chunks = [f'({chunk+("?" if chunk.endswith("?") else "")})' for chunk in clean_quote_chunks]
-    the_regex_str = '(?:' + ('.+'.join(regex_quote_chunks)) + ')'
-
-    if fuzzy:
-        the_regex_str += f'{{e<={fuzzy_nchars}}}'
-
-    the_regex = regex.compile(the_regex_str, flags=regex.IGNORECASE + regex.BESTMATCH)
-
-    spans = []
-    matches = list(the_regex.finditer(original))
+    quote_regex = dotted_quote_to_regex(quote, fuzzy)
+    matches = list(quote_regex.finditer(original))
 
     if not matches:
         raise ValueError(f'No match for {quote}')
@@ -132,11 +143,33 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_us
             else:
                 raise ValueError(f'Multiple matches for {quote}')
 
-    for n in range(1, len(regex_quote_chunks)+1):
+    spans = []
+    for n in range(1, len(match.groups()) +1):
         start, end = match.span(n)
         spans.append({'start': start, 'end': end, 'text': match.group(n)})
 
     return spans
+
+
+def dotted_quote_to_regex(quote: str, fuzzy: float) -> regex.Regex:
+    """
+    Turn a quote string into a regular expression with optional fuzzy matching.
+    Each part of the quote string is put in a regex capturing group.
+
+    >>> dotted_quote_to_regex("The quick brown ... over the ... dog", .2)
+    regex.Regex('(?:(The\\ quick\\ brown).+(over\\ the).+(dog)){e<=7}', flags=regex.B | regex.I | regex.V0)
+    """
+    quote_chunks = quote.split('...')
+    clean_quote_chunks = [regex.escape(chunk.strip()) for chunk in quote_chunks]
+    # make final question marks optional (because LLM often adds them):
+    regex_quote_chunks = [f'({chunk + ("?" if chunk.endswith("?") else "")})' for chunk in clean_quote_chunks]
+    the_regex_str = '(?:' + ('.+'.join(regex_quote_chunks)) + ')'
+
+    if fuzzy:
+        fuzzy_nchars = int(fuzzy * len(quote))
+        the_regex_str += f'{{e<={fuzzy_nchars}}}'
+
+    return regex.compile(the_regex_str, flags=regex.IGNORECASE + regex.BESTMATCH)
 
 
 if __name__ == '__main__':

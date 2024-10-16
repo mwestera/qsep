@@ -11,7 +11,7 @@ import re
 
 # TODO: Plug in more representative examples.
 
-SYSTEM_PROMPT = "You are a system that can break down a potentially complex question and dependent questions into self-contained subquestions, particularly for the Dutch language."
+SYSTEM_PROMPT = "You are a system that can split up composite questions and dependent questions, turning them into self-contained subquestions, particularly for the Dutch language."
 EXAMPLES = [
     {'prompt': 'Sinds wanneer geldt deze maatregel en wat was destijds de motivatie?',
      'response': ['Sinds wanneer geldt deze maatregel?', 'Wat was destijds de motivatie voor deze maatregel?']},
@@ -30,6 +30,8 @@ for exe in EXAMPLES:
     exe['response'] = json.dumps(exe['response'])
 
 
+# TODO: Include a 'raw' key in the output json? Pass along with the exception?!
+
 def main():
 
     logging.basicConfig(level=logging.INFO)
@@ -42,7 +44,9 @@ def main():
     argparser.add_argument('--temp', required=False, type=float, help='Temperature', default=.1)
     argparser.add_argument('--topp', required=False, type=float, help='Sample only from top probability', default=None)
     argparser.add_argument('--validate', action='store_true', help='Use LLM to link replies back to original quotes')
+    argparser.add_argument('--fuzzy', required=False, type=float, help='For retrieving quotations (if --validate), allow fuzzy matching, as a proportion of total characters.', default=0)
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
+    argparser.add_argument('--validate_retry', required=False, type=int, help='Max number of retries if validation response failed to parse.', default=2)
     args = argparser.parse_args()
 
     if args.model == 'test':
@@ -67,13 +71,16 @@ def main():
             continue
 
         chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
+
         if not args.validate:
             parser = parse_json_or_itemized_list_of_strings
         else:
             already_used = []
             def parser(raw):
-                return [{'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.retry, fail_ok=True, already_used=already_used),
-                         'rephrased': rephrased} for rephrased in parse_json_list_of_strings(raw)]
+                return [{
+                    'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.validate_retry, fail_ok=True, already_used=already_used, fuzzy=args.fuzzy),
+                    'rephrased': rephrased,
+                } for rephrased in parse_json_list_of_strings(raw)]
 
         # TODO: Refactor the various output formats
         try:
