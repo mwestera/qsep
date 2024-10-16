@@ -17,11 +17,9 @@ def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False, try_sk
         try:
             result = parser(raw)
         except ValueError as e1:    # TODO: refactor
-            if try_skip_first_line:
+            if try_skip_first_line and (raw_lines := raw.splitlines()) and len(raw_lines) > 1:
                 try:
-                    raw_lines = raw.splitlines()
-                    if len(raw_lines) > 1:
-                        result = parser('\n'.join(raw_lines[1:]))
+                    result = parser('\n'.join(raw_lines[1:]))
                 except ValueError as e2:
                     errors.append(str(e1) + '; ' + str(e2))
                     continue
