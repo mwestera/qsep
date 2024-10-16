@@ -82,7 +82,7 @@ def main():
             # TODO: Refactor
             result = []
             questions = [None, None] + list(re.finditer(r'[^?]+\?(?=(?: +[A-Z])|(?: *$))', line))
-            tuples = zip(questions[0:], questions[1:], questions[2:])
+            tuples = zip(*[questions[n:] for n in range(args.splitandmerge)])
             for triple in tuples:
                 triple = tuple(filter(None, triple))
                 triple_start = triple[0].span()[0]
