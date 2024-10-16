@@ -82,7 +82,7 @@ def main():
                 return [{
                     'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe, n_retries=args.validate_retry, fail_ok=True, already_used=already_used, fuzzy=args.fuzzy),
                     'rephrased': rephrased,
-                } for rephrased in parse_json_list_of_strings(raw)]
+                } for rephrased in parse_json_or_itemized_list_of_strings(raw)]
 
         try:
             result = retry_until_parse(pipe, chat_start, parser, args.retry)
