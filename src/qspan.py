@@ -5,7 +5,7 @@ from transformers import pipeline
 import functools
 from llm_utils import *
 import csv
-import re
+import regex
 
 
 PROMPT_FORMAT = '> {original}\n\nGive an exact, literal quote from this passage that conveys the same intent as "{rephrase}", and no more.'
@@ -88,31 +88,40 @@ def find_supporting_quote(original, rephrased, pipe, n_retries, fail_ok=False, a
 
 # TODO: Implement retrying WITH CORRECTIVE MESSAGE
 
-def parse_string_quote_as_spans(quote: str, original: str, fuzzy=False, already_used=None) -> list[dict]:
+def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_used=None) -> list[dict]:
     """
     >>> parse_string_quote_as_spans('de grote ... was lui', 'de grote grijze vos was lui')
     [{'start': 0, 'end': 8, 'text': 'de grote'}, {'start': 20, 'end': 27, 'text': 'was lui'}]
-    >>> parse_string_quote_as_spans('Zo nee, waarom niet?', 'Deelt u de mening dat bij de toepassing van IVF (en ook andere kunstmatige fertiliteitstechnieken) alleenstaande vrouwen niet mogen worden achtergesteld? Zo nee, waarom niet? Bent u voornemens maatregelen te nemen tegen de IVF-klinieken die alleenstaanden bij voorbaat van een behandeling uitsluiten? Zo nee, waarom niet? Zo ja, kunt u uiteenzetten welke maatregelen dat zijn (incl. tijdpad)?', already_used=[])
-    [{'start': 154, 'end': 174, 'text': 'Zo nee, waarom niet?'}]
+    >>> parse_string_quote_as_spans('de grote ... was lui', 'de grooote grijze vos was lui', fuzzy=.2)
+    [{'start': 0, 'end': 8, 'text': 'de grooo'}, {'start': 22, 'end': 29, 'text': 'was lui'}]
+    >>> parse_string_quote_as_spans('def', 'abc def ghij abc def ghij', already_used=[])
+    [{'start': 4, 'end': 7, 'text': 'def'}]
+    >>> parse_string_quote_as_spans('def', 'abc def ghij abc def ghij', already_used=[(4, 7)])
+    [{'start': 17, 'end': 20, 'text': 'def'}]
     """
-
-    # TODO: Implement fuzzy=True
-    if fuzzy:
-        raise NotImplementedError
 
     quote_chunks = quote.split('...')
 
-    clean_quote_chunks = [re.escape(chunk.strip()) for chunk in quote_chunks]
+    fuzzy_nchars = int(fuzzy * len(quote))
+
+    clean_quote_chunks = [regex.escape(chunk.strip()) for chunk in quote_chunks]
+    # make final question marks optional (because LLM often adds them):
     regex_quote_chunks = [f'({chunk+("?" if chunk.endswith("?") else "")})' for chunk in clean_quote_chunks]
-    regex = re.compile('.+'.join(regex_quote_chunks), flags=re.IGNORECASE)
+    the_regex_str = '(?:' + ('.+'.join(regex_quote_chunks)) + ')'
+
+    if fuzzy:
+        the_regex_str += f'{{e<={fuzzy_nchars}}}'
+
+    the_regex = regex.compile(the_regex_str, flags=regex.IGNORECASE + regex.BESTMATCH)
 
     spans = []
-    matches = list(regex.finditer(original))
+    matches = list(the_regex.finditer(original))
 
     if not matches:
         raise ValueError(f'No match for {quote}')
-
-    if len(matches) > 1:
+    elif len(matches) == 1:
+        match = matches[0]
+    elif len(matches) > 1:
         if already_used is None:
             raise ValueError(f'Multiple matches for {quote}')
         else:
@@ -123,7 +132,6 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=False, already_
             else:
                 raise ValueError(f'Multiple matches for {quote}')
 
-    match = matches[0]
     for n in range(1, len(regex_quote_chunks)+1):
         start, end = match.span(n)
         spans.append({'start': start, 'end': end, 'text': match.group(n)})
