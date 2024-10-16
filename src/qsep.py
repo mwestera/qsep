@@ -81,7 +81,7 @@ def main():
         if args.validate:
             parser = get_validated_parser(pipe, line, args.validate_retry, args.fuzzy)
 
-        if args.split_and_merge is not None:
+        if args.splitandmerge is not None:
             # TODO: Refactor
             result = []
             questions = [None, None] + list(re.finditer(r'\b[^?]+\?\b', line))
