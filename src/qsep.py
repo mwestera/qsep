@@ -78,13 +78,10 @@ def main():
                 print()
             continue
 
-        if args.validate:
-            parser = get_validated_parser(pipe, line, args.validate_retry, args.fuzzy)
-
         if args.splitandmerge is not None:
             # TODO: Refactor
             result = []
-            questions = [None, None] + list(re.finditer(r'\b[^?]+\?\b', line))
+            questions = [None, None] + list(re.finditer(r'[^?]+\?(?=(?: +[A-Z])|(?: *$))', line))
             tuples = zip(questions[0:], questions[1:], questions[2:])
             for triple in tuples:
                 triple = tuple(filter(None, triple))
@@ -92,6 +89,8 @@ def main():
                 target_start = triple[-1].span()[0]
                 triple_text = ''.join(match.group() for match in triple)
 
+                if args.validate:
+                    parser = get_validated_parser(pipe, triple_text, args.validate_retry, args.fuzzy)
 
                 chat_start = make_chat_start(triple_text, EXAMPLES, SYSTEM_PROMPT)
                 try:
@@ -113,6 +112,9 @@ def main():
                     result.extend(subresult)
 
         else:
+            if args.validate:
+                parser = get_validated_parser(pipe, line, args.validate_retry, args.fuzzy)
+
             chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
             try:
                 result = retry_until_parse(pipe, chat_start, parser, args.retry)
