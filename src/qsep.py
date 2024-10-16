@@ -102,14 +102,13 @@ def main():
                     logging.warning(f'Failed parsing triple response for input line {n}; {e}')
                     continue
 
-
                 if args.validate:
                     for res in subresult:
-                        if any(span['start'] < target_start for span in res['spans']):
-                            continue
                         for span in res['spans']:
                             span['start'] -= triple_start
                             span['end'] -= triple_start
+                        if any(span['start'] < target_start for span in res['spans']):
+                            continue
                         result.append(res)
                 else:
                     result.extend(subresult)
@@ -123,6 +122,10 @@ def main():
                 result = retry_until_parse(pipe, chat_start, parser, args.retry)
             except ValueError as e:
                 logging.warning(f'Failed parsing response for input line {n}; {e}')
+                if args.list:
+                    print(json.dumps([]))
+                else:
+                    print()
                 continue
 
         # TODO: Refactor the various output formats
