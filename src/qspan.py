@@ -87,7 +87,8 @@ def find_supporting_quote(original: str, rephrased: str, pipe, n_retries: int, f
                              chat_start,
                              parser=functools.partial(parse_string_quote_as_spans, original=original, already_used=already_used, fuzzy=fuzzy),
                              n_retries=n_retries,
-                             fail_ok=fail_ok)
+                             fail_ok=fail_ok,
+                             try_skip_first_line=False)
 
 
 # # Currently disabled because I don't think LLMs can count characters, and handling discontinuous spans not yet attempted.
