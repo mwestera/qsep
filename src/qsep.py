@@ -168,8 +168,9 @@ def get_validated_parser(pipe, validate_n_retries, fuzzy):
                                           fuzzy=fuzzy, only_from_char=only_from_char - char_offset),
             if char_offset:
                 for span in spans:
-                    span['start'] += char_offset
-                    span['end'] += char_offset
+                    if span['start'] and span['end']:
+                        span['start'] += char_offset
+                        span['end'] += char_offset
 
             result = {
                 'spans': spans,
