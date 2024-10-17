@@ -164,11 +164,10 @@ def get_validated_parser(pipe, validate_n_retries, fuzzy):
             spans = find_supporting_quote(original=original_text, rephrased=rephrased, pipe=pipe,
                                           n_retries=validate_n_retries, fail_ok=True, already_used=already_used,
                                           fuzzy=fuzzy, only_from_char=only_from_char - char_offset)
-            if char_offset:
+            if char_offset and spans is not None:
                 for span in spans:
-                    if span is not None:
-                        span['start'] += char_offset
-                        span['end'] += char_offset
+                    span['start'] += char_offset
+                    span['end'] += char_offset
 
             result = {
                 'spans': spans,
