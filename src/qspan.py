@@ -6,6 +6,7 @@ import functools
 from llm_utils import *
 import csv
 import regex
+import math
 
 
 PROMPT_FORMAT = '> {original}\n\nGive an exact, literal quote from this passage that conveys the same intent as "{rephrase}", and no more.'
@@ -181,7 +182,7 @@ def dotted_quote_to_regex(quote: str, fuzzy: float) -> regex.Regex:
     the_regex_str = '(?:' + ('.+'.join(regex_quote_chunks)) + ')'
 
     if fuzzy:
-        fuzzy_nchars = int(fuzzy * len(quote))
+        fuzzy_nchars = int(math.ceil(fuzzy * len(quote)))
         the_regex_str += f'{{e<={fuzzy_nchars}}}'
 
     return regex.compile(the_regex_str, flags=regex.IGNORECASE + regex.BESTMATCH)
