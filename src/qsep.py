@@ -110,10 +110,6 @@ def main():
 
                 result.extend(subresult)
 
-            if not some_succeeded:
-                logging.warning(f'Failed parsing response for any tuple of input line {n}')
-                continue
-
         else:
             if args.validate:
                 parser = functools.partial(parser, original_text=line)
