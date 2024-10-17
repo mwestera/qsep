@@ -93,9 +93,8 @@ def main():
             result = []
 
             for chunk_start, target_start, chunk_text in iter_question_tuples(line, args.splitandmerge):
-
                 if args.validate:
-                    parser = functools.partial(parser, original_text=chunk_text, char_offset=chunk_start, only_from_char=target_start)
+                    parser = functools.partial(parser, original_text=chunk_text, char_offset=chunk_start, only_from_char=target_start, already_used=[])
 
                 chat_start = make_chat_start(chunk_text, EXAMPLES, SYSTEM_PROMPT)
                 try:
@@ -112,7 +111,7 @@ def main():
 
         else:
             if args.validate:
-                parser = functools.partial(parser, original_text=line)
+                parser = functools.partial(parser, original_text=line, already_used=[])
 
             chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
             try:
@@ -158,14 +157,13 @@ def iter_question_tuples(line: str, n_per_tuple: int):
 
 
 def get_validated_parser(pipe, validate_n_retries, fuzzy):
-    already_used = []
 
-    def parser(raw, original_text, char_offset=0, only_from_char=0):
+    def parser(raw, original_text, char_offset=0, only_from_char=0, already_used=[]):
         results = []
         for rephrased in parse_json_or_itemized_list_of_strings(raw):
             spans = find_supporting_quote(original=original_text, rephrased=rephrased, pipe=pipe,
                                           n_retries=validate_n_retries, fail_ok=True, already_used=already_used,
-                                          fuzzy=fuzzy, only_from_char=only_from_char - char_offset),
+                                          fuzzy=fuzzy, only_from_char=only_from_char - char_offset)
             if char_offset:
                 for span in spans:
                     if span is not None:
