@@ -33,6 +33,7 @@ for exe in EXAMPLES:
 # TODO: Include a 'raw' key in the output json? Pass along with the exception?!
 # TODO: Add gradual temperature increase for retrying?!
 # TODO: In case of splitandmerge, adapt the prompt so the model focuses on the last sentence? Will make it far more efficient, too.
+# TODO: The ... doesn't work quite as it should, for discontinuous quotes... maybe |?
 
 def main():
 
@@ -86,6 +87,7 @@ def main():
             result = []
             questions = [None, None] + list(re.finditer(r'[^?]+\?(?=(?: +[A-Z])|(?: *$))', line))
             tuples = zip(*[questions[n:] for n in range(args.splitandmerge)])
+            some_succeeded = False
             for triple in tuples:
                 triple = tuple(filter(None, triple))
                 triple_start = triple[0].span()[0]
@@ -101,9 +103,13 @@ def main():
                 except ValueError as e:
                     logging.warning(f'Failed parsing triple response for input line {n}; {e}')
                     continue
+                else:
+                    some_succeeded = True
 
                 if args.validate:
-                    for res in subresult:
+                    for res in subresult:   # i.e., all extracted rephrasings/quotes for a triple
+                        if res['spans'] is None:   # for validate in the case of split and merge, don't keep the Nones, or we get too many duplicates
+                            continue
                         for span in res['spans']:
                             span['start'] -= triple_start
                             span['end'] -= triple_start
@@ -112,6 +118,10 @@ def main():
                         result.append(res)
                 else:
                     result.extend(subresult)
+
+            if not some_succeeded:
+                logging.warning(f'Failed parsing response for any tuple of input line {n}')
+                continue
 
         else:
             if args.validate:
@@ -122,10 +132,6 @@ def main():
                 result = retry_until_parse(pipe, chat_start, parser, args.retry)
             except ValueError as e:
                 logging.warning(f'Failed parsing response for input line {n}; {e}')
-                if args.list:
-                    print(json.dumps([]))
-                else:
-                    print()
                 continue
 
         # TODO: Refactor the various output formats
