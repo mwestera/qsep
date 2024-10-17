@@ -80,7 +80,7 @@ def main():
         print()
 
 
-def find_supporting_quote(original: str, rephrased: str, pipe, n_retries: int, fail_ok=False, already_used=None, fuzzy=0.0, only_from_char):
+def find_supporting_quote(original: str, rephrased: str, pipe, n_retries: int, fail_ok=False, already_used=None, fuzzy=0.0, only_from_char=0):
     prompt = PROMPT_FORMAT.format(original=original, rephrase=rephrased)
     chat_start = make_chat_start(prompt, EXAMPLES, SYSTEM_PROMPT)
     return retry_until_parse(pipe,
