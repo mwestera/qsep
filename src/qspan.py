@@ -134,6 +134,8 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_us
     >>> parse_string_quote_as_spans('And ... when?', 'What for? And why? And if so, when? And for whom will this be done?', fuzzy=0.2)
     Traceback (most recent call last):
     ValueError: Multiple matches for And ... when?
+    >>> parse_string_quote_as_spans('Herinnert u zich mijn schriftelijke vragen over het weigeren van mannelijke artsen door gesluierde vrouwen?', 'Herinnert u zich mijn schriftelijke vragen over het weigeren van mannelijke artsen door gesluierde vrouwen? Herinnert u zich uw antwoord dat zoveel mogelijk recht moet worden gedaan aan de keuzevrijheid van de cliënt, maar dat er wel grenzen zijn? Kunt u aangeven waar deze grenzen liggen en waarop deze zijn gebaseerd? .', fuzzy=0.2)
+    [{'start': 0, 'end': 107, 'text': 'Herinnert u zich mijn schriftelijke vragen over het weigeren van mannelijke artsen door gesluierde vrouwen?'}]
     """
 
     quote_regex = dotted_quote_to_regex(quote, fuzzy)
@@ -167,10 +169,12 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_us
     return spans
 
 
-def dotted_quote_to_regex(quote: str, fuzzy: float) -> regex.Regex:
+def dotted_quote_to_regex(quote: str, fuzzy: float, fuzzy_max_e: int = 7) -> regex.Regex:
     """
     Turn a quote string into a regular expression with optional fuzzy matching.
     Each part of the quote string is put in a regex capturing group.
+
+    fuzzy_max_e: max number of characters to change (as fuzzy * len(quote) becomes too big); bigger can mean (very) slow.
 
     >>> dotted_quote_to_regex("The quick brown ... over the ... dog", .2)
     regex.Regex('(?:(The\\ quick\\ brown).+(over\\ the).+(dog)){e<=7}', flags=regex.B | regex.I | regex.V0)
@@ -179,10 +183,10 @@ def dotted_quote_to_regex(quote: str, fuzzy: float) -> regex.Regex:
     clean_quote_chunks = [regex.escape(chunk.strip()) for chunk in quote_chunks]
     # make final question marks optional (because LLM often adds them):
     regex_quote_chunks = [f'({chunk + ("?" if chunk.endswith("?") else "")})' for chunk in clean_quote_chunks]
-    the_regex_str = '(?:' + ('.+'.join(regex_quote_chunks)) + ')'
+    the_regex_str = '(?:' + ('[^?]+'.join(regex_quote_chunks)) + ')'
 
     if fuzzy:
-        fuzzy_nchars = int(math.ceil(fuzzy * len(quote)))
+        fuzzy_nchars = min(int(math.ceil(fuzzy * len(quote))), fuzzy_max_e)
         the_regex_str += f'{{e<={fuzzy_nchars}}}'
 
     return regex.compile(the_regex_str, flags=regex.IGNORECASE + regex.BESTMATCH)

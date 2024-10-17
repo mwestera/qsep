@@ -35,6 +35,7 @@ for exe in EXAMPLES:
 # TODO: In case of splitandmerge, adapt the prompt so the model focuses on the last sentence? Will make it far more efficient, too.
 # TODO: The ... doesn't work quite as it should, for discontinuous quotes... maybe |, or csq like "blabla", "blablabla"?
 # TODO: Refactoring.
+# TODO: Tweak logging formats.
 
 def main():
 
