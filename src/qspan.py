@@ -142,7 +142,7 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_us
     if not matches:
         raise ValueError(f'No match for {quote}')
 
-    matches = [m for m in matches if m.span()[0] > only_from_char]
+    matches = [m for m in matches if m.span()[0] >= only_from_char]
 
     if not matches:
         raise ValueError(f'No match for {quote} from character {only_from_char}')
