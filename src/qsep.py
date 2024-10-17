@@ -33,8 +33,7 @@ for exe in EXAMPLES:
 # TODO: Include a 'raw' key in the output json? Pass along with the exception?!
 # TODO: Add gradual temperature increase for retrying?!
 # TODO: In case of splitandmerge, adapt the prompt so the model focuses on the last sentence? Will make it far more efficient, too.
-# TODO: The ... doesn't work quite as it should, for discontinuous quotes... maybe |?
-# TODO: Implement a fake language model for easier testing...
+# TODO: The ... doesn't work quite as it should, for discontinuous quotes... maybe |, or csq like "blabla", "blablabla"?
 # TODO: Refactoring.
 
 def main():
@@ -58,6 +57,7 @@ def main():
     args = argparser.parse_args()
 
     if args.model == 'test':
+        # TODO: Implement a fake language model for easier testing...
         args.model = 'llamafactory/tiny-random-Llama-3'
 
     if args.validate and not args.json:
@@ -69,6 +69,9 @@ def main():
     pipe = functools.partial(pipeline("text-generation", model=args.model), max_new_tokens=1000, temperature=args.temp, top_p=args.topp)
     if not args.validate:
         parser = parse_json_or_itemized_list_of_strings
+    else:
+        # to be further instantiated per input line
+        parser = get_validated_parser(pipe=pipe, validate_n_retries=args.validate_retry, fuzzy=args.fuzzy)
 
     for n, line in enumerate(args.file):
 
@@ -86,40 +89,26 @@ def main():
 
         if args.splitandmerge is not None:
             # TODO: Refactor
+
             result = []
-            questions = [None] * (args.splitandmerge - 1) + list(re.finditer(r'[^?]+\?(?=(?: +[A-Z])|(?: *$))', line))
-            tuples = zip(*[questions[n:] for n in range(args.splitandmerge)])
-            some_succeeded = False
-            for triple in tuples:
-                triple = tuple(filter(None, triple))
-                triple_start = triple[0].span()[0]
-                target_start = triple[-1].span()[0]
-                triple_text = ''.join(match.group() for match in triple)
+
+            for chunk_start, target_start, chunk_text in iter_question_tuples(line, args.splitandmerge):
 
                 if args.validate:
-                    parser = get_validated_parser(pipe, triple_text, args.validate_retry, args.fuzzy)
+                    parser = functools.partial(parser, original_text=chunk_text, char_offset=chunk_start, only_from_char=target_start)
 
-                chat_start = make_chat_start(triple_text, EXAMPLES, SYSTEM_PROMPT)
+                chat_start = make_chat_start(chunk_text, EXAMPLES, SYSTEM_PROMPT)
                 try:
                     subresult = retry_until_parse(pipe, chat_start, parser, args.retry)
                 except ValueError as e:
-                    logging.warning(f'Failed parsing triple response for input line {n}; {e}')
+                    logging.warning(f'Failed parsing response for input chunk {n}.{chunk_start}; {e}')
                     continue
-                else:
-                    some_succeeded = True
 
                 if args.validate:
-                    for res in subresult:   # i.e., all extracted rephrasings/quotes for a triple
-                        if res['spans'] is None:   # for validate in the case of split and merge, don't keep the Nones, or we get too many duplicates
-                            continue
-                        for span in res['spans']:
-                            span['start'] -= triple_start
-                            span['end'] -= triple_start
-                        if any(span['start'] < target_start for span in res['spans']):
-                            continue
-                        result.append(res)
-                else:
-                    result.extend(subresult)
+                    # for validate in the case of split and merge, don't keep the Nones, or we get too many duplicates:
+                    subresult = [r for r in subresult if r['spans'] is not None]
+
+                result.extend(subresult)
 
             if not some_succeeded:
                 logging.warning(f'Failed parsing response for any tuple of input line {n}')
@@ -127,7 +116,7 @@ def main():
 
         else:
             if args.validate:
-                parser = get_validated_parser(pipe, line, args.validate_retry, args.fuzzy)
+                parser = functools.partial(parser, original_text=line)
 
             chat_start = make_chat_start(line, EXAMPLES, SYSTEM_PROMPT)
             try:
@@ -152,16 +141,47 @@ def main():
                     print(res)
 
 
-def get_validated_parser(pipe, line, validate_n_retries, fuzzy):
+def iter_question_tuples(line: str, n_per_tuple: int):
+    """
+    >>> list(iter_question_tuples('Test? Hello? Not sure?', 1))
+    [(0, 0, 'Test?'), (5, 5, ' Hello?'), (12, 12, ' Not sure?')]
+    >>> list(iter_question_tuples('Test? Hello? Not sure?', 2))
+    [(0, 0, 'Test?'), (0, 5, 'Test? Hello?'), (5, 12, ' Hello? Not sure?')]
+    """
+
+    questions = [None] * (n_per_tuple - 1) + list(re.finditer(r'[^?]+\?(?=(?: +[A-Z])|(?: *$))', line))
+    tuples = zip(*[questions[n:] for n in range(n_per_tuple)])
+    for questions_tuple in tuples:
+        questions_tuple = tuple(filter(None, questions_tuple))
+        chunk_start = questions_tuple[0].span()[0]
+        target_start = questions_tuple[-1].span()[0]
+        chunk_text = ''.join(match.group() for match in questions_tuple)
+
+        yield chunk_start, target_start, chunk_text
+
+
+
+def get_validated_parser(pipe, validate_n_retries, fuzzy):
     already_used = []
 
-    def parser(raw):
-        return [{
-            'spans': find_supporting_quote(original=line, rephrased=rephrased, pipe=pipe,
-                                           n_retries=validate_n_retries, fail_ok=True, already_used=already_used,
-                                           fuzzy=fuzzy),
-            'rephrased': rephrased,
-        } for rephrased in parse_json_or_itemized_list_of_strings(raw)]
+    def parser(raw, original_text, char_offset=0, only_from_char=0):
+        results = []
+        for rephrased in parse_json_or_itemized_list_of_strings(raw):
+            spans = find_supporting_quote(original=original_text, rephrased=rephrased, pipe=pipe,
+                                          n_retries=validate_n_retries, fail_ok=True, already_used=already_used,
+                                          fuzzy=fuzzy, only_from_char=only_from_char - char_offset),
+            if char_offset:
+                for span in spans:
+                    span['start'] += char_offset
+                    span['end'] += char_offset
+
+            result = {
+                'spans': spans,
+                'rephrased': rephrased,
+            }
+            results.append(result)
+
+        return results
 
     return parser
 

@@ -80,12 +80,12 @@ def main():
         print()
 
 
-def find_supporting_quote(original: str, rephrased: str, pipe, n_retries: int, fail_ok=False, already_used=None, fuzzy=0.0):
+def find_supporting_quote(original: str, rephrased: str, pipe, n_retries: int, fail_ok=False, already_used=None, fuzzy=0.0, only_from_char):
     prompt = PROMPT_FORMAT.format(original=original, rephrase=rephrased)
     chat_start = make_chat_start(prompt, EXAMPLES, SYSTEM_PROMPT)
     return retry_until_parse(pipe,
                              chat_start,
-                             parser=functools.partial(parse_string_quote_as_spans, original=original, already_used=already_used, fuzzy=fuzzy),
+                             parser=functools.partial(parse_string_quote_as_spans, original=original, already_used=already_used, fuzzy=fuzzy, only_from_char=only_from_char),
                              n_retries=n_retries,
                              fail_ok=fail_ok,
                              try_skip_first_line=False)
@@ -117,7 +117,7 @@ def find_supporting_quote(original: str, rephrased: str, pipe, n_retries: int, f
 # TODO: Implement in-dialogue-retrying with feedback
 
 
-def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_used=None) -> list[dict]:
+def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_used=None, only_from_char=0) -> list[dict]:
     """
     >>> parse_string_quote_as_spans('de grote ... was lui', 'de grote grijze vos was lui')
     [{'start': 0, 'end': 8, 'text': 'de grote'}, {'start': 20, 'end': 27, 'text': 'was lui'}]
@@ -140,6 +140,11 @@ def parse_string_quote_as_spans(quote: str, original: str, fuzzy=0.0, already_us
 
     if not matches:
         raise ValueError(f'No match for {quote}')
+
+    matches = [m for m in matches if m.span()[0] > only_from_char]
+
+    if not matches:
+        raise ValueError(f'No match for {quote} from character {only_from_char}')
     elif len(matches) == 1:
         match = matches[0]
     elif len(matches) > 1:
