@@ -34,6 +34,8 @@ for exe in EXAMPLES:
 # TODO: Add gradual temperature increase for retrying?!
 # TODO: In case of splitandmerge, adapt the prompt so the model focuses on the last sentence? Will make it far more efficient, too.
 # TODO: The ... doesn't work quite as it should, for discontinuous quotes... maybe |?
+# TODO: Implement a fake language model for easier testing...
+# TODO: Refactoring.
 
 def main():
 
@@ -85,7 +87,7 @@ def main():
         if args.splitandmerge is not None:
             # TODO: Refactor
             result = []
-            questions = [None, None] + list(re.finditer(r'[^?]+\?(?=(?: +[A-Z])|(?: *$))', line))
+            questions = [None] * (args.splitandmerge - 1) + list(re.finditer(r'[^?]+\?(?=(?: +[A-Z])|(?: *$))', line))
             tuples = zip(*[questions[n:] for n in range(args.splitandmerge)])
             some_succeeded = False
             for triple in tuples:
