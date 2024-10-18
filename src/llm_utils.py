@@ -1,8 +1,9 @@
 import json
 import logging
+import functools
 
 
-def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False, try_skip_first_line=True):
+def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False, try_skip_first_line=True, increase_temp=.1):
     """
     :param try_skip_first_line: Sometimes LLMs preface their (otherwise fine) answer by "Here is the answer:" etc.
     """
@@ -14,6 +15,7 @@ def retry_until_parse(pipe, chat_start, parser, n_retries, fail_ok=False, try_sk
         n_try += 1
         raw = pipe([chat_start])[0][0]['generated_text'][-1]['content']
         logging.info(f'(Attempt {n_try}): Model says: {raw}'.replace('\n', '//'))
+        pipe = functools.partial(pipe, temperature=pipe.keywords['temperature'] + increase_temp)
         try:
             result = parser(raw)
         except ValueError as e1:    # TODO: refactor
