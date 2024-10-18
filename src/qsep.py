@@ -36,6 +36,7 @@ for exe in EXAMPLES:
 # TODO: The ... doesn't work quite as it should, for discontinuous quotes... maybe |, or csq like "blabla", "blablabla"?
 # TODO: Refactoring.
 # TODO: Tweak logging formats.
+# TODO: Always do multiple tries, and aggregate them? Or choose the response listing the most questions?
 
 def main():
 
@@ -54,7 +55,7 @@ def main():
     argparser.add_argument('--splitandmerge', required=False, type=int, default=None, help='Cuts question sequences into smaller chunks of n questions; recommended for longer sequences of questions, though really only with --validate enabled.')
     argparser.add_argument('--fuzzy', required=False, type=float, help='For retrieving quotations (if --validate), allow fuzzy matching, as a proportion of total characters.', default=0)
     argparser.add_argument('--retry', required=False, type=int, help='Max number of retries if response failed to parse.', default=5)
-    argparser.add_argument('--validate_retry', required=False, type=int, help='Max number of retries if validation response failed to parse.', default=2)
+    argparser.add_argument('--validate_retry', required=False, type=int, help='Max number of retries if validation response failed to parse.', default=5)
     args = argparser.parse_args()
 
     if args.model == 'test':
@@ -145,7 +146,7 @@ def iter_question_tuples(line: str, n_per_tuple: int):
     [(0, 0, 'Test?'), (0, 5, 'Test? Hello?'), (5, 12, ' Hello? Not sure?')]
     """
 
-    questions = [None] * (n_per_tuple - 1) + list(re.finditer(r'[^?]+\?(?=(?: +[A-Z])|(?: *$))', line))
+    questions = [None] * (n_per_tuple - 1) + list(re.finditer(r'[^?]+\?', line))    # lookahead, but caused misses: (?=(?: +[A-Z])|(?: *$))
     tuples = zip(*[questions[n:] for n in range(n_per_tuple)])
     for questions_tuple in tuples:
         questions_tuple = tuple(filter(None, questions_tuple))
